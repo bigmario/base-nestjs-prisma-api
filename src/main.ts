@@ -29,8 +29,8 @@ async function bootstrap() {
   );
 
   const config = new DocumentBuilder()
-    .setTitle('Casa La Romana Intranet API')
-    .setDescription('Casa La Romana Intranet API')
+    .setTitle('Base API')
+    .setDescription('Base API')
     .setVersion('1.0')
     .addBearerAuth({
       type: 'oauth2',
