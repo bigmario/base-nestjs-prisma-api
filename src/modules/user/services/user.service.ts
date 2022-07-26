@@ -34,6 +34,7 @@ export class UserService {
     createdAt: true,
     updatedAt: true,
     imgUrl: true,
+    session: true,
   };
 
   constructor(private readonly userRepository: UserRepository) {}
