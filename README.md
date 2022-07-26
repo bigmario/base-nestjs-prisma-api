@@ -32,7 +32,7 @@
 $ npm install
 ```
 
-## Running the app
+## Running the app on Local
 
 ```bash
 # development
@@ -43,6 +43,13 @@ $ npm run start:dev
 
 # production mode
 $ npm run start:prod
+```
+
+## Running the app on Docker
+
+```bash
+# development watch mode
+$ docker-compose up dev
 ```
 
 ## Test
