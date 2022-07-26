@@ -1,0 +1,44 @@
+name: deploy on digital ocean
+on:
+  push:
+    branches:
+      - master
+  pull_request_review:
+    types: [submitted]
+    branches:
+      - master
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_KEY" > ~/.ssh/server
+          chmod 600 ~/.ssh/server
+          cat >>~/.ssh/config <<END
+          Host server
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/server
+            StrictHostKeyChecking no
+          END
+        env:
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_KEY_1 }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+
+      - name: git pull
+        run: >
+          ssh server 'cd /root/sunmi-intranet-backend/ &&
+            git checkout master &&
+            git pull origin master'
+
+      - name: deploy
+        run: >
+          ssh -t server 'bash -i -c "cd /root/sunmi-intranet-backend/ && 
+          npm ci &&
+          npx prisma migrate dev &&
+          npx prisma db seed &&
+          npm run build &&
+          pm2 restart api"'
