@@ -109,4 +109,5 @@ export async function createUsers(prismaClient: PrismaServiceType) {
       primaryPhone: '+5804140000000',
     },
   });
+  await prismaClient.$queryRaw`ALTER SEQUENCE user_id_seq restart 2`;
 }
