@@ -3,7 +3,7 @@ services:
   postgres:
     image: postgres:14.1-alpine
     ports:
-      - '5432:5432'
+      - 5432:5432
     volumes:
       - db:/var/lib/postgresql/data
     networks:
@@ -13,7 +13,7 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     env_file:
-      - .env.docker
+      - .env
     restart: always
 
   redis:
@@ -23,7 +23,7 @@ services:
     networks:
       - main-network
     env_file:
-      - .env.docker
+      - .env
 
   dev:
     build:
@@ -34,15 +34,15 @@ services:
       - .:/usr/src/app
       - /usr/src/app/node_modules
     ports:
-      - '3000:3000'
+      - 3000:3000
     networks:
       - main-network
     depends_on:
       - postgres
       - redis
     env_file:
-     - .env.docker
-    command: sh -c "npx prisma migrate dev && npx prisma db seed && npm run start:dev"
+     - .env
+    command: sh -c "npm run start:docker-dev"
   
   prod:
     build:
@@ -53,10 +53,10 @@ services:
       - .:/usr/src/app
       - /usr/src/app/node_modules
     env_file:
-      - .env.docker
-    command: sh -c "npx prisma migrate deploy && node dist/prisma/seed && node dist/src/main"
+      - .env
+    command: sh -c "npm run start:docker-prod"
     ports:
-      - '3010:3010'
+      - 3010:3010
     networks:
       - main-network
     depends_on:

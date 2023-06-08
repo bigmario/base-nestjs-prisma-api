@@ -9,6 +9,7 @@ import { AuthService } from '@auth/services/auth.service';
 import { LocalStrategy } from '@auth/strategies/local.strategy';
 import { JwtStrategy } from '@auth/strategies/jwt.strategy';
 import { AuthRepository } from '@auth/repositories/auth.repository';
+import { EmailModule } from '@core/email/email.module';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { AuthRepository } from '@auth/repositories/auth.repository';
     PassportModule,
     JwtModule.registerAsync({
       useFactory: async () => {
-        let configService: ConfigService = new ConfigService();
+        const configService: ConfigService = new ConfigService();
 
         return {
           secret: configService.get('JWT_SECRET'),
@@ -24,6 +25,7 @@ import { AuthRepository } from '@auth/repositories/auth.repository';
         };
       },
     }),
+    EmailModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, AuthRepository, LocalStrategy, JwtStrategy],

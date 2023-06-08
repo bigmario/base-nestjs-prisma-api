@@ -88,7 +88,7 @@ export async function createUsers(prismaClient: PrismaServiceType) {
     create: {
       id: 1,
       email: 'admin@mail.com',
-      password: hashSync('12345678', 10),
+      password: hashSync(process.env.MASTER_PASS, 10),
       rolId: 1,
       typeId: 1,
     },

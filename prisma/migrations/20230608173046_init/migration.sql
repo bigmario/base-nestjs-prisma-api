@@ -26,6 +26,7 @@ CREATE TABLE "session" (
     "password" VARCHAR(2048) NOT NULL,
     "lastAccess" TIMESTAMP(3),
     "timesLoggedIn" INTEGER NOT NULL DEFAULT 0,
+    "recoveryToken" VARCHAR(2048),
     "typeId" SMALLINT,
     "rolId" SMALLINT,
     "statusId" SMALLINT,

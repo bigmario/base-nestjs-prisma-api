@@ -1,4 +1,10 @@
-import { CACHE_MANAGER, Inject, Injectable } from '@nestjs/common';
+import {
+  CACHE_MANAGER,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { JwtService } from '@nestjs/jwt';
 import { compareSync } from 'bcrypt';
@@ -8,6 +14,7 @@ import { IRequest } from '@auth/interfaces/express';
 
 import { AuthRepository } from '@auth/repositories/auth.repository';
 import { Prisma } from '@prisma/client';
+import { RecoveryDto, ResetPassDto } from '@auth/dto/recovery.dto';
 
 @Injectable()
 export class AuthService {
@@ -123,5 +130,40 @@ export class AuthService {
       type: fullSessionInfo.type.name,
       rol: fullSessionInfo.rol.name,
     };
+  }
+
+  public async sendRecoveryMail(recoveryDto: RecoveryDto) {
+    try {
+      const findOptions: Prisma.sessionFindFirstOrThrowArgs = {
+        where: {
+          email: recoveryDto.email,
+        },
+        include: {
+          user: true,
+        },
+      };
+
+      const mail = await this.authRepo.sendRecoveryMail(findOptions);
+      return mail;
+    } catch (error) {
+      switch (error.name) {
+        case 'NotFoundError':
+          throw new NotFoundException(
+            `No existe el usuario con el email ${recoveryDto.email}`,
+          );
+
+        default:
+          console.log(error);
+          throw new InternalServerErrorException(`Ocurrio un error inesperado`);
+      }
+    }
+  }
+
+  public async resetPassword(resetPassDto: ResetPassDto) {
+    const mail = await this.authRepo.resetPassword(
+      resetPassDto.token,
+      resetPassDto.newPassword,
+    );
+    return mail;
   }
 }
