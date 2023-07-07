@@ -29,9 +29,7 @@ export class UserRepository extends BaseRepository {
           imgUrl: updateOptions.body.imgUrl,
           session: {
             update: {
-              email: updateOptions.body.email,
               rolId: updateOptions.body.rolId,
-              password: hashSync(updateOptions.body.password, 10),
             },
           },
         };

@@ -13,10 +13,9 @@ export class BaseRepository implements OnModuleInit {
   }
 
   public async findOne<T>(model: any, findOneArgs: T) {
-    return model.findFirst({
+    return model.findFirstOrThrow({
       select: findOneArgs['select'],
       where: findOneArgs['where'],
-      rejectOnNotFound: findOneArgs['rejectOnNotFound'] || false,
     });
   }
 
@@ -56,8 +55,8 @@ export class BaseRepository implements OnModuleInit {
     const filterList = search.split(' ');
     const filtersBuilt = [];
 
-    for (let column of columns) {
-      for (let filter of filterList) {
+    for (const column of columns) {
+      for (const filter of filterList) {
         filtersBuilt.push({
           [column]: { contains: filter, mode: 'insensitive' },
         });

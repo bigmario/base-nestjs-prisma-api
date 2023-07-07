@@ -42,7 +42,9 @@ services:
       - redis
     env_file:
      - .env
-    command: sh -c "npm run start:docker-dev"
+    command: ["./wait-for-postgres.sh", "postgres:5432", "--", "sh", "-c", "npm run start:docker-dev"]
+    restart: always
+
   
   prod:
     build:
@@ -54,9 +56,10 @@ services:
       - /usr/src/app/node_modules
     env_file:
       - .env
-    command: sh -c "npm run start:docker-prod"
+    command: ["./wait-for-postgres.sh", "postgres:5432", "--", "sh", "-c", "npm run start:docker-prod"]
+    restart: always
     ports:
-      - 3010:3010
+      - 3000:3000
     networks:
       - main-network
     depends_on:
