@@ -21,7 +21,7 @@ import {
 } from '@auth/constants/routes.const';
 
 import { Public } from '@auth/decorators/public.decorator';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiTags } from '@nestjs/swagger';
 import { LoginDto } from '@auth/dto/login.dto';
 import { IRequest } from '@auth/interfaces/express';
 import { RecoveryDto, ResetPassDto } from '@auth/dto/recovery.dto';
@@ -34,10 +34,11 @@ export class AuthController {
   @Public()
   @UseGuards(LocalAuthGuard)
   @Post(AUTH_LOGIN_ROUTE)
-  public async login(
-    @Request() request: IRequest,
-    @Body() body: LoginDto,
-  ): Promise<any> {
+  @ApiBody({
+    type: LoginDto,
+    description: 'Login Body',
+  })
+  public async login(@Request() request: IRequest): Promise<any> {
     return this.authService.login(request.user);
   }
 

@@ -149,10 +149,11 @@ export class UserService {
         rejectOnNotFound: true,
       };
 
-      const user = await this.userRepository.findOne<Prisma.userFindFirstArgs>(
-        this.userRepository.prismaService.user,
-        findOneOptions,
-      );
+      const user =
+        await this.userRepository.findOne<Prisma.userFindFirstOrThrowArgs>(
+          this.userRepository.prismaService.user,
+          findOneOptions,
+        );
       const response = {
         id: user.id,
         name: user.name,
