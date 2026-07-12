@@ -3,7 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { hashSync } from 'bcrypt';
+import { hashSync } from 'bcryptjs';
 import { PrismaService } from '@core/prisma/services/prisma.service';
 import { Prisma } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
@@ -33,9 +33,8 @@ export class AuthRepository {
   public async sendRecoveryMail(
     findOptions: Prisma.sessionFindFirstOrThrowArgs,
   ) {
-    const session = await this.prismaService.session.findFirstOrThrow(
-      findOptions,
-    );
+    const session =
+      await this.prismaService.session.findFirstOrThrow(findOptions);
 
     const payload = { sub: session['user'].id };
 

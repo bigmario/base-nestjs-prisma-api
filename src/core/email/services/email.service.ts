@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { MailerService } from 'nestjs-emailer';
+import { MailerService } from '@nestjs-modules/mailer';
 
 @Injectable()
 export class EmailService {
@@ -9,7 +9,7 @@ export class EmailService {
     private configService: ConfigService,
   ) {}
 
-  public async sendConfirmationEMail(notification: any) {
+  public async sendConfirmationEMail(_notification: any) {
     const result = await this.mailerService.sendMail({
       to: 'elber.nava17@gmail.com',
       subject: 'testing bro',

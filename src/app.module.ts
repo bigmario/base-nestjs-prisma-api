@@ -1,7 +1,8 @@
-import { Module, CacheModule } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import * as redisStore from 'cache-manager-redis-store';
+import { CacheModule } from '@nestjs/cache-manager';
+import { createKeyv } from '@keyv/redis';
 
 import { PaginationModule } from '@core/pagination/pagination.module';
 import { PrismaModule } from '@core/prisma/prisma.module';
@@ -19,14 +20,22 @@ import { AppController } from './app.controller';
     ConfigModule.forRoot({ isGlobal: true, expandVariables: true }),
     CacheModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        store: redisStore,
-        url: `redis://${configService.get('REDIS_HOST')}:${configService.get(
-          'REDIS_PORT',
-        )}`,
-        username: configService.get('REDIS_USERNAME'),
-        password: configService.get('REDIS_PASSWORD'),
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const redisHost = configService.get('REDIS_HOST');
+        const redisPort = configService.get('REDIS_PORT');
+        const redisUser = configService.get('REDIS_USERNAME');
+        const redisPass = configService.get('REDIS_PASSWORD');
+
+        let redisUrl = 'redis://';
+        if (redisUser && redisPass) {
+          redisUrl += `${redisUser}:${redisPass}@`;
+        }
+        redisUrl += `${redisHost}:${redisPort}`;
+
+        return {
+          stores: [createKeyv(redisUrl)],
+        };
+      },
       isGlobal: true,
       inject: [ConfigService],
     }),
@@ -35,7 +44,6 @@ import { AppController } from './app.controller';
     UserModule,
     AuthModule,
     EmailModule,
-    PaginationModule,
   ],
   providers: [
     {
