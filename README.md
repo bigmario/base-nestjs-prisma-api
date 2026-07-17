@@ -595,7 +595,14 @@ import { PaginationService } from '@core/pagination/services/pagination.service'
 
 ## 🧪 Testing
 
-The project uses **Jest** as the testing framework with **Supertest** for E2E tests.
+The project uses **Jest** as the testing framework with **Supertest** for E2E tests. 
+
+### Strategy
+- **Unit Tests**: Place spec files (`*.spec.ts`) in the `src/` directory alongside the implementation. Services, controllers, repositories, guards, and strategies are unit tested in isolation using mock utilities.
+- **E2E Tests**: Place E2E spec files (`*.e2e-spec.ts`) in the `test/` directory. These tests run HTTP requests directly against a compiled test application.
+- **No external dependencies**: Both Unit and E2E tests utilize mock factories (`PrismaService`, `CACHE_MANAGER`, `EmailService`) to guarantee tests run out-of-the-box locally or in CI/CD pipelines without needing a running PostgreSQL or Redis instance.
+
+### Commands
 
 ```bash
 # Run all unit tests
@@ -604,17 +611,17 @@ npm run test
 # Run unit tests in watch mode
 npm run test:watch
 
-# Run a specific test file
-npm run test -- src/path/to/file.spec.ts
+# Run a specific unit test file
+npm run test -- src/modules/auth/services/auth.service.spec.ts
 
 # Run tests matching a name pattern
 npm run test -- -t "should return user profile"
 
-# Run E2E tests
+# Run E2E tests (completely isolated via mock providers)
 npm run test:e2e
 
 # Run a specific E2E test
-npm run test:e2e -- -t "GET /"
+npm run test:e2e -- test/auth.e2e-spec.ts
 
 # Generate coverage report
 npm run test:cov
