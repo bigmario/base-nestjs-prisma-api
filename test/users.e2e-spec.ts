@@ -9,7 +9,7 @@ import { createMockCacheManager } from '../src/test-utils/mocks/cache.mock';
 import { EmailService } from '../src/core/email/services/email.service';
 import { createMockEmailService } from '../src/test-utils/mocks/email.mock';
 
-describe('AppController (e2e)', () => {
+describe('UsersController (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -40,10 +40,33 @@ describe('AppController (e2e)', () => {
     await app.close();
   });
 
-  it('GET / should return 200 with greeting message', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('nice to greet you!, human');
+  describe('Protected routes (401 without token)', () => {
+    it('GET /users/roles - should return 401', () => {
+      return request(app.getHttpServer()).get('/users/roles').expect(401);
+    });
+
+    it('GET /users/statuses - should return 401', () => {
+      return request(app.getHttpServer()).get('/users/statuses').expect(401);
+    });
+
+    it('POST /users - should return 401', () => {
+      return request(app.getHttpServer()).post('/users').send({}).expect(401);
+    });
+
+    it('GET /users - should return 401', () => {
+      return request(app.getHttpServer()).get('/users').expect(401);
+    });
+
+    it('GET /users/:id - should return 401', () => {
+      return request(app.getHttpServer()).get('/users/1').expect(401);
+    });
+
+    it('PATCH /users/:id - should return 401', () => {
+      return request(app.getHttpServer()).patch('/users/1').send({}).expect(401);
+    });
+
+    it('DELETE /users/:id - should return 401', () => {
+      return request(app.getHttpServer()).delete('/users/1').expect(401);
+    });
   });
 });
