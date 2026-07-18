@@ -1,8 +1,9 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { hashSync } from 'bcrypt';
+import { hashSync } from 'bcryptjs';
 
 import { PrismaService } from '@core/prisma/services/prisma.service';
+import { PaginationService } from '@core/pagination/services/pagination.service';
 
 import { CreateUserDto } from '@user/dtos/create-user.dto';
 import { BaseCreateBodyDto } from '@core/dtos/base-create-body.dto';
@@ -13,8 +14,11 @@ import { UpdateUserDto } from '@user/dtos/update-user.dto';
 
 @Injectable()
 export class UserRepository extends BaseRepository {
-  constructor(public readonly prismaService: PrismaService) {
-    super();
+  constructor(
+    public readonly prismaService: PrismaService,
+    paginationService: PaginationService,
+  ) {
+    super(paginationService);
   }
   public async updateUser(updateOptions: BaseUpdateBodyDto<UpdateUserDto>) {
     return this.prismaService.$transaction(

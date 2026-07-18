@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import {
-  PaginateFunction,
-  PaginateOptions,
-} from '@core/pagination/types/pagination-types.types';
+import { PaginateOptions } from '@core/pagination/types/pagination-types.types';
 @Injectable()
 export class PaginationService {
   constructor(private configService: ConfigService) {}

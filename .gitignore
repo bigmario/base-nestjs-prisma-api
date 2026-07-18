@@ -39,3 +39,5 @@ lerna-debug.log*
 .env
 .env.docker
 files/
+session-log.md
+NEXT_STEPS.md

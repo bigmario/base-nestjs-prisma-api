@@ -1,10 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { Logger, ValidationPipe } from '@nestjs/common';
 
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
-import {} from '@nestjs/swagger';
 
 async function bootstrap() {
   BigInt.prototype['toJSON'] = function () {
@@ -16,6 +15,8 @@ async function bootstrap() {
 
   const port = configService.get('LOCAL_PORT');
   const hostname = configService.get('HOST');
+
+  app.enableShutdownHooks();
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -44,11 +45,17 @@ async function bootstrap() {
       },
     })
     .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
+
+  const documentFactory = () => SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, documentFactory);
 
   app.enableCors();
 
-  await app.listen(process.env.PORT || port, hostname);
+  await app.listen(process.env.PORT || port, '0.0.0.0');
+
+  Logger.log(
+    `🚀 Application is running on: http://${hostname}:${port}`,
+    'Bootstrap',
+  );
 }
-bootstrap();
+void bootstrap();
