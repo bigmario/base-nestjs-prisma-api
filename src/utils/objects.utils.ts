@@ -1,4 +1,4 @@
-export function isEmptyObject(object: {}) {
+export function isEmptyObject(object: object) {
   if (object) {
     return Object.keys(object).length === 0;
   }

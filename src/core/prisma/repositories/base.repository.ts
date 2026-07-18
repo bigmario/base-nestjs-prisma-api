@@ -1,16 +1,11 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import { PaginationService } from '@core/pagination/services/pagination.service';
 import { FindAllOptions } from '@core/types/find-all.types';
-import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class BaseRepository implements OnModuleInit {
-  public paginationService: PaginationService;
-
-  onModuleInit() {
-    this.paginationService = new PaginationService(new ConfigService());
-  }
+export class BaseRepository {
+  constructor(public readonly paginationService: PaginationService) {}
 
   public async findOne<T>(model: any, findOneArgs: T) {
     return model.findFirstOrThrow({

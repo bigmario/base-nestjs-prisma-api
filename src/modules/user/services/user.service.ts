@@ -143,10 +143,9 @@ export class UserService {
 
   public async getUserById(id: number) {
     try {
-      const findOneOptions: Prisma.userFindFirstArgs = {
+      const findOneOptions: Prisma.userFindFirstOrThrowArgs = {
         where: { id, deletedAt: null },
         select: this.userSelect,
-        rejectOnNotFound: true,
       };
 
       const user =
@@ -170,8 +169,8 @@ export class UserService {
       };
       return response;
     } catch (error) {
-      switch (error.name) {
-        case 'NotFoundError':
+      switch (error.code) {
+        case 'P2025':
           throw new BadRequestException(`No existe el usuario con el id ${id}`);
 
         default:

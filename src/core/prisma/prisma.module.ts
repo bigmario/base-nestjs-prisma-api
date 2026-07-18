@@ -7,6 +7,6 @@ import { BaseRepository } from '@core/prisma/repositories/base.repository';
 @Module({
   imports: [PaginationModule],
   providers: [PrismaService, BaseRepository],
-  exports: [PrismaService, BaseRepository],
+  exports: [PrismaService, BaseRepository, PaginationModule],
 })
 export class PrismaModule {}

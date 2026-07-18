@@ -1,15 +1,14 @@
 import {
-  CACHE_MANAGER,
   Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { JwtService } from '@nestjs/jwt';
-import { compareSync } from 'bcrypt';
+import { compareSync } from 'bcryptjs';
 import { nanoid } from 'nanoid/async';
-import { differenceInSeconds } from 'date-fns';
 import { IRequest } from '@auth/interfaces/express';
 
 import { AuthRepository } from '@auth/repositories/auth.repository';
@@ -71,9 +70,8 @@ export class AuthService {
         rol: { select: { id: true, name: true } },
       },
     };
-    const fullSessionInfo: any = await this.authRepo.getSessionInfo(
-      findOptions,
-    );
+    const fullSessionInfo: any =
+      await this.authRepo.getSessionInfo(findOptions);
 
     return {
       access_token: this.jwtService.sign(sessionInfo, {
@@ -92,9 +90,9 @@ export class AuthService {
     const jti = decodeToken.payload.jti;
     const now = Date.now();
     const exp = decodeToken.payload.exp * 1000;
-    const ttl = differenceInSeconds(exp, now);
+    const ttlMs = exp - now;
 
-    await this.cacheManager.set(jti, jti, { ttl });
+    await this.cacheManager.set(jti, jti, ttlMs > 0 ? ttlMs : 0);
 
     return { message: 'session closed successfully' };
   }
@@ -120,9 +118,8 @@ export class AuthService {
       },
     };
 
-    const fullSessionInfo: any = await this.authRepo.getSessionInfo(
-      findOptions,
-    );
+    const fullSessionInfo: any =
+      await this.authRepo.getSessionInfo(findOptions);
 
     return {
       ...fullSessionInfo.user,

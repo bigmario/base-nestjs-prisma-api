@@ -1,7 +1,6 @@
-version: "3.8"
 services:
   postgres:
-    image: postgres:14.1-alpine
+    image: postgres:16-alpine
     ports:
       - 5432:5432
     volumes:
@@ -17,7 +16,7 @@ services:
     restart: always
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     ports:
       - 6380:6379
     networks:
@@ -30,6 +29,7 @@ services:
       dockerfile: Dockerfile
       context: .
       target: development
+    user: root
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules

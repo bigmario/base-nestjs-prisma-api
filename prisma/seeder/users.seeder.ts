@@ -1,5 +1,5 @@
 import { PrismaServiceType } from '@core/prisma/types/prisma';
-import { hashSync } from 'bcrypt';
+import { hashSync } from 'bcryptjs';
 
 export async function createUsers(prismaClient: PrismaServiceType) {
   await prismaClient.session_status.upsert({
