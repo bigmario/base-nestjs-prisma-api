@@ -4,7 +4,7 @@
   "description": "",
   "author": "Mario Castro <mariocastro.pva@gmail.com>",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "engines": {
     "node": ">=22.0.0",
     "npm": ">=10.0.0"
