@@ -871,7 +871,7 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 
 ## 📄 License
 
-This project is **UNLICENSED** — private and proprietary.
+This project is licensed under the [MIT License](LICENSE) — see the [LICENSE](LICENSE) file for details.
 
 ---
 
