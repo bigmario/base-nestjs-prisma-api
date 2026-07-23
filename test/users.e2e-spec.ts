@@ -62,7 +62,10 @@ describe('UsersController (e2e)', () => {
     });
 
     it('PATCH /users/:id - should return 401', () => {
-      return request(app.getHttpServer()).patch('/users/1').send({}).expect(401);
+      return request(app.getHttpServer())
+        .patch('/users/1')
+        .send({})
+        .expect(401);
     });
 
     it('DELETE /users/:id - should return 401', () => {

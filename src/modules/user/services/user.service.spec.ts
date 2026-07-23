@@ -18,11 +18,14 @@ describe('UserService', () => {
   beforeEach(async () => {
     const mockUserRepository = {
       findAll: jest.fn(),
+      findAllCached: jest.fn(),
       findOne: jest.fn(),
+      findOneCached: jest.fn(),
       softDelete: jest.fn(),
       buildFilters: jest.fn(),
       createUser: jest.fn(),
       updateUser: jest.fn(),
+      invalidateModelCache: jest.fn(),
       prismaService: {
         user: 'user_model',
         session_rol: 'session_rol_model',
@@ -49,17 +52,17 @@ describe('UserService', () => {
   });
 
   describe('getAllUserRoles', () => {
-    it('debería llamar findAll con los args correctos y retornar resultado', async () => {
+    it('debería llamar findAllCached con los args correctos y retornar resultado', async () => {
       const queryParams = { page: 1, limit: 10 };
       const expectedResult = {
         data: mockUserRoles,
         meta: { totalItems: 2 },
       };
-      repository.findAll.mockResolvedValue(expectedResult);
+      repository.findAllCached.mockResolvedValue(expectedResult);
 
       const result = await service.getAllUserRoles(queryParams);
 
-      expect(repository.findAll).toHaveBeenCalledWith(
+      expect(repository.findAllCached).toHaveBeenCalledWith(
         repository.prismaService.session_rol,
         expect.objectContaining({
           paginate: true,
@@ -69,26 +72,34 @@ describe('UserService', () => {
             page: 1,
           }),
         }),
+        expect.objectContaining({
+          keyPrefix: 'api:user:roles',
+          ttl: 3_600_000,
+        }),
       );
       expect(result).toEqual(expectedResult);
     });
   });
 
   describe('getAllUserStatuses', () => {
-    it('debería llamar findAll con los args correctos y retornar resultado', async () => {
+    it('debería llamar findAllCached con los args correctos y retornar resultado', async () => {
       const queryParams = { page: 1, limit: 10 };
       const expectedResult = {
         data: mockUserStatuses,
         meta: { totalItems: 2 },
       };
-      repository.findAll.mockResolvedValue(expectedResult);
+      repository.findAllCached.mockResolvedValue(expectedResult);
 
       const result = await service.getAllUserStatuses(queryParams);
 
-      expect(repository.findAll).toHaveBeenCalledWith(
+      expect(repository.findAllCached).toHaveBeenCalledWith(
         repository.prismaService.session_status,
         expect.objectContaining({
           paginate: true,
+        }),
+        expect.objectContaining({
+          keyPrefix: 'api:user:statuses',
+          ttl: 3_600_000,
         }),
       );
       expect(result).toEqual(expectedResult);
@@ -98,14 +109,18 @@ describe('UserService', () => {
   describe('getAllUsers', () => {
     it('debería retornar data formateada con meta', async () => {
       const queryParams = { page: 1, limit: 10 };
-      repository.findAll.mockResolvedValue(mockPaginatedResult);
+      repository.findAllCached.mockResolvedValue(mockPaginatedResult);
 
       const result = await service.getAllUsers(queryParams);
 
-      expect(repository.findAll).toHaveBeenCalledWith(
+      expect(repository.findAllCached).toHaveBeenCalledWith(
         repository.prismaService.user,
         expect.objectContaining({
           paginate: true,
+        }),
+        expect.objectContaining({
+          keyPrefix: 'api:user:list',
+          ttl: 120_000,
         }),
       );
       // The service transforms data
@@ -116,9 +131,11 @@ describe('UserService', () => {
 
     it('debería aplicar filtro de búsqueda cuando se provee search', async () => {
       const queryParams = { page: 1, limit: 10, search: 'John' };
-      const filterResult = [{ name: { contains: 'John', mode: 'insensitive' } }];
+      const filterResult = [
+        { name: { contains: 'John', mode: 'insensitive' } },
+      ];
       repository.buildFilters.mockReturnValue(filterResult);
-      repository.findAll.mockResolvedValue(mockPaginatedResult);
+      repository.findAllCached.mockResolvedValue(mockPaginatedResult);
 
       await service.getAllUsers(queryParams);
 
@@ -132,14 +149,19 @@ describe('UserService', () => {
 
   describe('getUserById', () => {
     it('debería retornar datos del usuario formateados', async () => {
-      repository.findOne.mockResolvedValue(mockUser);
+      repository.findOneCached.mockResolvedValue(mockUser);
 
       const result = await service.getUserById(1);
 
-      expect(repository.findOne).toHaveBeenCalledWith(
+      expect(repository.findOneCached).toHaveBeenCalledWith(
         repository.prismaService.user,
         expect.objectContaining({
           where: { id: 1, deletedAt: null },
+        }),
+        expect.objectContaining({
+          keyPrefix: 'api:user:item',
+          keySuffix: '1',
+          ttl: 600_000,
         }),
       );
       expect(result).toHaveProperty('email', 'john@test.com');
@@ -149,7 +171,7 @@ describe('UserService', () => {
     it('debería lanzar BadRequestException si el usuario no existe (P2025)', async () => {
       const error = new Error('Not found') as any;
       error.code = 'P2025';
-      repository.findOne.mockRejectedValue(error);
+      repository.findOneCached.mockRejectedValue(error);
 
       await expect(service.getUserById(999)).rejects.toThrow(
         BadRequestException,
@@ -158,8 +180,9 @@ describe('UserService', () => {
   });
 
   describe('createUser', () => {
-    it('debería retornar mensaje de éxito con url', async () => {
+    it('debería retornar mensaje de éxito con url e invalidar cache', async () => {
       repository.createUser.mockResolvedValue({ id: 1n, url: '/users/1' });
+      repository.invalidateModelCache.mockResolvedValue(undefined);
 
       const result = await service.createUser(mockCreateUserDto as any);
 
@@ -167,6 +190,9 @@ describe('UserService', () => {
         body: mockCreateUserDto,
         newResourceUrl: true,
       });
+      expect(repository.invalidateModelCache).toHaveBeenCalledWith(
+        'api:user:list',
+      );
       expect(result).toEqual({
         message: 'Usuario creado con éxito',
         url: '/users/1',
@@ -175,16 +201,24 @@ describe('UserService', () => {
   });
 
   describe('updateUser', () => {
-    it('debería retornar mensaje de éxito con url', async () => {
+    it('debería retornar mensaje de éxito con url e invalidar cache', async () => {
       repository.updateUser.mockResolvedValue({ id: 1n, url: '/users/1' });
+      repository.invalidateModelCache.mockResolvedValue(undefined);
 
-      const result = await service.updateUser(1, mockUpdateUserDto as any);
+      const result = await service.updateUser(1, mockUpdateUserDto);
 
       expect(repository.updateUser).toHaveBeenCalledWith({
         id: 1,
         body: mockUpdateUserDto,
         resourceUrl: true,
       });
+      expect(repository.invalidateModelCache).toHaveBeenCalledWith(
+        'api:user:item',
+        1,
+      );
+      expect(repository.invalidateModelCache).toHaveBeenCalledWith(
+        'api:user:list',
+      );
       expect(result).toEqual({
         message: 'Usuario creado con éxito',
         url: '/users/1',
@@ -193,14 +227,19 @@ describe('UserService', () => {
   });
 
   describe('deleteUser', () => {
-    it('debería retornar mensaje de éxito', async () => {
+    it('debería retornar mensaje de éxito e invalidar cache', async () => {
       repository.softDelete.mockResolvedValue({ id: 1 });
+      repository.invalidateModelCache.mockResolvedValue(undefined);
 
       const result = await service.deleteUser(1);
 
       expect(repository.softDelete).toHaveBeenCalledWith(
         repository.prismaService.user,
         1,
+        'api:user:item',
+      );
+      expect(repository.invalidateModelCache).toHaveBeenCalledWith(
+        'api:user:list',
       );
       expect(result).toEqual({ message: 'Usuario eliminado con éxito' });
     });

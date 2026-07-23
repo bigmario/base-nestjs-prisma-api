@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserController } from './user.controller';
 import { UserService } from '../services/user.service';
-import { mockUser, mockUserRoles, mockUserStatuses, mockPaginatedResult } from '../../../test-utils/fixtures/user.fixture';
+import {
+  mockUser,
+  mockUserRoles,
+  mockUserStatuses,
+  mockPaginatedResult,
+} from '../../../test-utils/fixtures/user.fixture';
 
 describe('UserController', () => {
   let controller: UserController;
@@ -58,7 +63,13 @@ describe('UserController', () => {
 
   describe('createUser', () => {
     it('should delegate to service with body', async () => {
-      const body = { email: 'test@test.com', password: 'pass', name: 'Test', lastName: 'User', rolId: 1 } as any;
+      const body = {
+        email: 'test@test.com',
+        password: 'pass',
+        name: 'Test',
+        lastName: 'User',
+        rolId: 1,
+      } as any;
       const expectedResult = { message: 'User created', url: '/users/1' };
       userService.createUser.mockResolvedValue(expectedResult);
       const result = await controller.createUser(body);
@@ -70,7 +81,7 @@ describe('UserController', () => {
   describe('getAllUsers', () => {
     it('should delegate to service with query params', async () => {
       const queryParams = { page: 1, limit: 10 };
-      userService.getAllUsers.mockResolvedValue(mockPaginatedResult as any);
+      userService.getAllUsers.mockResolvedValue(mockPaginatedResult);
       const result = await controller.getAllUsers(queryParams);
       expect(userService.getAllUsers).toHaveBeenCalledWith(queryParams);
       expect(result).toEqual(mockPaginatedResult);
