@@ -22,7 +22,7 @@ export async function createUsers(prismaClient: PrismaServiceType) {
     },
   });
 
-  await prismaClient.$queryRaw`ALTER SEQUENCE session_status_id_seq restart 3`;
+  await prismaClient.$queryRaw`SELECT setval('session_status_id_seq', COALESCE((SELECT MAX(id) FROM session_status), 1))`;
 
   await prismaClient.session_type.upsert({
     where: { id: 1 },
@@ -34,7 +34,7 @@ export async function createUsers(prismaClient: PrismaServiceType) {
     },
   });
 
-  await prismaClient.$queryRaw`ALTER SEQUENCE session_type_id_seq restart 2`;
+  await prismaClient.$queryRaw`SELECT setval('session_type_id_seq', COALESCE((SELECT MAX(id) FROM session_type), 1))`;
 
   await prismaClient.session_rol.upsert({
     where: { id: 1 },
@@ -80,7 +80,7 @@ export async function createUsers(prismaClient: PrismaServiceType) {
     },
   });
 
-  await prismaClient.$queryRaw`ALTER SEQUENCE session_rol_id_seq restart 4`;
+  await prismaClient.$queryRaw`SELECT setval('session_rol_id_seq', COALESCE((SELECT MAX(id) FROM session_rol), 1))`;
 
   await prismaClient.session.upsert({
     where: { id: 1 },
@@ -94,7 +94,7 @@ export async function createUsers(prismaClient: PrismaServiceType) {
     },
   });
 
-  await prismaClient.$queryRaw`ALTER SEQUENCE session_id_seq restart 2`;
+  await prismaClient.$queryRaw`SELECT setval('session_id_seq', COALESCE((SELECT MAX(id) FROM session), 1))`;
 
   await prismaClient.user.upsert({
     where: { id: 1 },
@@ -109,5 +109,5 @@ export async function createUsers(prismaClient: PrismaServiceType) {
       primaryPhone: '+5804140000000',
     },
   });
-  await prismaClient.$queryRaw`ALTER SEQUENCE user_id_seq restart 2`;
+  await prismaClient.$queryRaw`SELECT setval('user_id_seq', COALESCE((SELECT MAX(id) FROM "user"), 1))`;
 }

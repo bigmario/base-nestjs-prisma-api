@@ -8,11 +8,11 @@ import { createMockPrismaService } from './mocks/prisma.mock';
 import { createMockCacheManager } from './mocks/cache.mock';
 import { createMockEmailService } from './mocks/email.mock';
 
-export async function createTestApp(): Promise<{ 
-  app: INestApplication; 
-  prismaService: any; 
-  cacheManager: any; 
-  emailService: any; 
+export async function createTestApp(): Promise<{
+  app: INestApplication;
+  prismaService: any;
+  cacheManager: any;
+  emailService: any;
 }> {
   const prismaMock = createMockPrismaService();
   const cacheMock = createMockCacheManager();
@@ -30,7 +30,7 @@ export async function createTestApp(): Promise<{
     .compile();
 
   const app = moduleFixture.createNestApplication();
-  
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

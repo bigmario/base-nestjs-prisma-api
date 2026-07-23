@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UserRepository } from './user.repository';
 import { PrismaService } from '@core/prisma/services/prisma.service';
 import { PaginationService } from '@core/pagination/services/pagination.service';
+import { RedisCacheService } from '@core/cache/redis-cache.service';
 import { mockUser } from '../../../test-utils/fixtures/user.fixture';
 
 jest.mock('bcryptjs', () => ({
@@ -22,11 +23,20 @@ describe('UserRepository', () => {
       },
       session: {
         create: jest.fn(),
-      }
+      },
     };
 
     const mockPaginationService = {
       buildUrl: jest.fn().mockReturnValue('http://localhost:3000/users/1'),
+    };
+
+    const mockRedisCacheService = {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+      delByPrefix: jest.fn(),
+      setWithPrefix: jest.fn(),
+      reset: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -39,7 +49,11 @@ describe('UserRepository', () => {
         {
           provide: PaginationService,
           useValue: mockPaginationService,
-        }
+        },
+        {
+          provide: RedisCacheService,
+          useValue: mockRedisCacheService,
+        },
       ],
     }).compile();
 
@@ -59,23 +73,23 @@ describe('UserRepository', () => {
           password: 'pass',
           name: 'Test',
           lastName: 'User',
-          rolId: 1
+          rolId: 1,
         },
-        newResourceUrl: true
+        newResourceUrl: true,
       };
-      
+
       const mockSession = { id: 1n };
       const mockTransactionClient = {
         session: { create: jest.fn().mockResolvedValue(mockSession) },
         user: { create: jest.fn().mockResolvedValue(mockUser) },
       };
-      
+
       prismaService.$transaction.mockImplementation(async (callback) => {
         return callback(mockTransactionClient as any);
       });
 
       const result = await repository.createUser(createOptions as any);
-      
+
       expect(prismaService.$transaction).toHaveBeenCalled();
       expect(mockTransactionClient.session.create).toHaveBeenCalled();
       expect(mockTransactionClient.user.create).toHaveBeenCalled();
@@ -88,19 +102,19 @@ describe('UserRepository', () => {
       const updateOptions = {
         id: 1,
         body: { name: 'Updated' },
-        resourceUrl: true
+        resourceUrl: true,
       };
-      
+
       const mockTransactionClient = {
         user: { update: jest.fn().mockResolvedValue(mockUser) },
       };
-      
+
       prismaService.$transaction.mockImplementation(async (callback) => {
         return callback(mockTransactionClient as any);
       });
 
-      const result = await repository.updateUser(updateOptions as any);
-      
+      const result = await repository.updateUser(updateOptions);
+
       expect(prismaService.$transaction).toHaveBeenCalled();
       expect(mockTransactionClient.user.update).toHaveBeenCalled();
       expect(result).toHaveProperty('url', 'http://localhost:3000/users/1');

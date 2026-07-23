@@ -37,16 +37,19 @@ describe('LocalStrategy', () => {
 
       const result = await strategy.validate('test@example.com', 'password123');
 
-      expect(authService.validate).toHaveBeenCalledWith('test@example.com', 'password123');
+      expect(authService.validate).toHaveBeenCalledWith(
+        'test@example.com',
+        'password123',
+      );
       expect(result).toEqual(mockUser);
     });
 
     it('debería lanzar UnauthorizedException cuando las credenciales son inválidas', async () => {
       (authService.validate as jest.Mock).mockResolvedValue(null);
 
-      await expect(strategy.validate('test@example.com', 'wrong'))
-        .rejects
-        .toThrow(UnauthorizedException);
+      await expect(
+        strategy.validate('test@example.com', 'wrong'),
+      ).rejects.toThrow(UnauthorizedException);
     });
   });
 });

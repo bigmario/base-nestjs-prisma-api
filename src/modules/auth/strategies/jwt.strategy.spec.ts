@@ -37,7 +37,7 @@ describe('JwtStrategy', () => {
   describe('validate', () => {
     it('debería retornar el payload tal cual (as-is)', async () => {
       const payload = { id: 1, email: 'test@example.com', jti: 'mock-jti' };
-      
+
       const result = await strategy.validate(payload);
 
       expect(result).toEqual(payload);

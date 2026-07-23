@@ -4,6 +4,7 @@ import { hashSync } from 'bcryptjs';
 
 import { PrismaService } from '@core/prisma/services/prisma.service';
 import { PaginationService } from '@core/pagination/services/pagination.service';
+import { RedisCacheService } from '@core/cache/redis-cache.service';
 
 import { CreateUserDto } from '@user/dtos/create-user.dto';
 import { BaseCreateBodyDto } from '@core/dtos/base-create-body.dto';
@@ -17,8 +18,9 @@ export class UserRepository extends BaseRepository {
   constructor(
     public readonly prismaService: PrismaService,
     paginationService: PaginationService,
+    cacheService: RedisCacheService,
   ) {
-    super(paginationService);
+    super(paginationService, cacheService);
   }
   public async updateUser(updateOptions: BaseUpdateBodyDto<UpdateUserDto>) {
     return this.prismaService.$transaction(

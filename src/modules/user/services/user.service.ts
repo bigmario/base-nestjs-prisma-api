@@ -21,6 +21,21 @@ import {
 import { USER_BASE_ROUTE } from '@user/constants/routes.const';
 import { UpdateUserDto } from '@user/dtos/update-user.dto';
 
+// ── Cache key prefixes & TTLs (ms) ──────────────────────────
+
+/** Catalog data — very low volatility. */
+const CACHE_ROLES_PREFIX = 'api:user:roles';
+const CACHE_STATUSES_PREFIX = 'api:user:statuses';
+const CACHE_CATALOG_TTL = 3_600_000; // 1 hour
+
+/** User list — medium-high volatility, paginated. */
+const CACHE_USER_LIST_PREFIX = 'api:user:list';
+const CACHE_USER_LIST_TTL = 120_000; // 2 minutes
+
+/** Single user — medium volatility. */
+const CACHE_USER_ITEM_PREFIX = 'api:user:item';
+const CACHE_USER_ITEM_TTL = 600_000; // 10 minutes
+
 @Injectable()
 export class UserService {
   private userSelect: Prisma.userSelect = {
@@ -47,13 +62,20 @@ export class UserService {
       where: { deletedAt: null },
     };
 
+    const keySuffix = `page=${queryParams.page ?? 1}&limit=${queryParams.limit ?? 10}`;
+
     const userRoles =
-      await this.userRepository.findAll<FindManySessionRolesArgs>(
+      await this.userRepository.findAllCached<FindManySessionRolesArgs>(
         this.userRepository.prismaService.session_rol,
         {
           paginate: true,
           resourceBaseUrl: USER_BASE_ROUTE + '/roles',
           findManyArgs,
+        },
+        {
+          keyPrefix: CACHE_ROLES_PREFIX,
+          keySuffix,
+          ttl: CACHE_CATALOG_TTL,
         },
       );
 
@@ -68,13 +90,20 @@ export class UserService {
       where: { deletedAt: null },
     };
 
+    const keySuffix = `page=${queryParams.page ?? 1}&limit=${queryParams.limit ?? 10}`;
+
     const userStatuses =
-      await this.userRepository.findAll<FindManySessionStatusesArgs>(
+      await this.userRepository.findAllCached<FindManySessionStatusesArgs>(
         this.userRepository.prismaService.session_status,
         {
           paginate: true,
           resourceBaseUrl: USER_BASE_ROUTE + '/statuses',
           findManyArgs,
+        },
+        {
+          keyPrefix: CACHE_STATUSES_PREFIX,
+          keySuffix,
+          ttl: CACHE_CATALOG_TTL,
         },
       );
 
@@ -107,12 +136,23 @@ export class UserService {
       },
     };
 
-    const users = await this.userRepository.findAll<FindManyUsersArgs>(
+    const keySuffix = [
+      `page=${queryParams.page ?? 1}`,
+      `limit=${queryParams.limit ?? 10}`,
+      ...(queryParams.search ? [`search=${queryParams.search}`] : []),
+    ].join('&');
+
+    const users = await this.userRepository.findAllCached<FindManyUsersArgs>(
       this.userRepository.prismaService.user,
       {
         paginate: true,
         resourceBaseUrl: USER_BASE_ROUTE,
         findManyArgs,
+      },
+      {
+        keyPrefix: CACHE_USER_LIST_PREFIX,
+        keySuffix,
+        ttl: CACHE_USER_LIST_TTL,
       },
     );
 
@@ -149,9 +189,14 @@ export class UserService {
       };
 
       const user =
-        await this.userRepository.findOne<Prisma.userFindFirstOrThrowArgs>(
+        await this.userRepository.findOneCached<Prisma.userFindFirstOrThrowArgs>(
           this.userRepository.prismaService.user,
           findOneOptions,
+          {
+            keyPrefix: CACHE_USER_ITEM_PREFIX,
+            keySuffix: String(id),
+            ttl: CACHE_USER_ITEM_TTL,
+          },
         );
       const response = {
         id: user.id,
@@ -186,6 +231,9 @@ export class UserService {
       newResourceUrl: true,
     });
 
+    // Invalidate user list caches after creating a new user
+    await this.userRepository.invalidateModelCache(CACHE_USER_LIST_PREFIX);
+
     return { message: 'Usuario creado con éxito', url: newUser.url };
   }
 
@@ -196,6 +244,10 @@ export class UserService {
       resourceUrl: true,
     });
 
+    // Invalidate both the specific item and all list caches
+    await this.userRepository.invalidateModelCache(CACHE_USER_ITEM_PREFIX, id);
+    await this.userRepository.invalidateModelCache(CACHE_USER_LIST_PREFIX);
+
     return { message: 'Usuario creado con éxito', url: updatedUser.url };
   }
 
@@ -204,7 +256,11 @@ export class UserService {
       await this.userRepository.softDelete(
         this.userRepository.prismaService.user,
         id,
+        CACHE_USER_ITEM_PREFIX,
       );
+
+      // Also invalidate list caches
+      await this.userRepository.invalidateModelCache(CACHE_USER_LIST_PREFIX);
 
       return { message: 'Usuario eliminado con éxito' };
     } catch (error) {
