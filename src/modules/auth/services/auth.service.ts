@@ -1,4 +1,5 @@
 import {
+  HttpException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -146,19 +147,21 @@ export class AuthService {
       const mail = await this.authRepo.sendRecoveryMail(findOptions);
       return mail;
     } catch (error) {
-      switch (error.name) {
-        case 'NotFoundError':
-          throw new NotFoundException(
-            `No existe el usuario con el email ${recoveryDto.email}`,
-          );
-
-        default:
-          this.logger.error(
-            'Unexpected error while sending recovery mail',
-            error,
-          );
-          throw new InternalServerErrorException(`Ocurrio un error inesperado`);
+      // Preserve intentional HTTP errors raised downstream
+      // (e.g. "Recovery Mail Not Sent").
+      if (error instanceof HttpException) {
+        throw error;
       }
+
+      // Prisma `findFirstOrThrow` raises P2025 when the session is missing.
+      if (error?.code === 'P2025' || error?.name === 'NotFoundError') {
+        throw new NotFoundException(
+          `No existe el usuario con el email ${recoveryDto.email}`,
+        );
+      }
+
+      this.logger.error('Unexpected error while sending recovery mail', error);
+      throw new InternalServerErrorException('Ocurrio un error inesperado');
     }
   }
 

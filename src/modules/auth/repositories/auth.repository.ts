@@ -84,7 +84,7 @@ export class AuthRepository {
       });
 
       if (session.recoveryToken !== token) {
-        throw new UnauthorizedException('Invalid recovery token');
+        throw new BadRequestException('Invalid recovery token');
       }
       const hash = hashSync(newPassword, 10);
       await this.prismaService.session.update({
@@ -98,18 +98,29 @@ export class AuthRepository {
       });
       return { message: 'Password Changed' };
     } catch (error) {
+      // Preserve intentional domain errors (e.g. invalid recovery token).
       if (error instanceof HttpException) {
         throw error;
       }
+
+      // Invalid/expired JWT recovery tokens are client errors, not 500s.
       if (
-        error?.name === 'JsonWebTokenError' ||
         error?.name === 'TokenExpiredError' ||
-        error?.name === 'NotFoundError'
+        error?.name === 'JsonWebTokenError' ||
+        error?.name === 'NotBeforeError'
       ) {
-        throw new BadRequestException('Invalid or expired recovery token');
+        throw new UnauthorizedException('Invalid or expired recovery token');
       }
+
+      // Recovery session no longer exists.
+      if (error?.code === 'P2025' || error?.name === 'NotFoundError') {
+        throw new BadRequestException('Invalid recovery token');
+      }
+
       this.logger.error('Unexpected error while resetting password', error);
-      throw new InternalServerErrorException('An unexpected error occurred');
+      throw new InternalServerErrorException(
+        'An unexpected error occurred while resetting the password',
+      );
     }
   }
 }

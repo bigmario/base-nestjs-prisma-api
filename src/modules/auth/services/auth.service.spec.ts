@@ -223,6 +223,27 @@ describe('AuthService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('debería lanzar NotFoundException si Prisma responde P2025', async () => {
+      const error: any = new Error('Record not found');
+      error.code = 'P2025';
+      authRepo.sendRecoveryMail.mockRejectedValue(error);
+
+      await expect(
+        authService.sendRecoveryMail({ email: 'fake@test.com' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('debería propagar HttpException lanzada por el repositorio', async () => {
+      const httpError = new InternalServerErrorException(
+        'Recovery Mail Not Sent',
+      );
+      authRepo.sendRecoveryMail.mockRejectedValue(httpError);
+
+      await expect(
+        authService.sendRecoveryMail({ email: 'john@test.com' }),
+      ).rejects.toBe(httpError);
+    });
+
     it('debería lanzar InternalServerErrorException en error desconocido', async () => {
       const error = new Error('Unknown');
       error.name = 'SomethingElse';
