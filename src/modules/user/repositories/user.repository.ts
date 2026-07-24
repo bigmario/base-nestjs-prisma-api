@@ -1,4 +1,11 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  ConflictException,
+  HttpException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { hashSync } from 'bcryptjs';
 
@@ -15,6 +22,8 @@ import { UpdateUserDto } from '@user/dtos/update-user.dto';
 
 @Injectable()
 export class UserRepository extends BaseRepository {
+  private readonly logger = new Logger(UserRepository.name);
+
   constructor(
     public readonly prismaService: PrismaService,
     paginationService: PaginationService,
@@ -115,11 +124,7 @@ export class UserRepository extends BaseRepository {
         data: userData,
       });
     } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException({
-        message: 'Ocurrio un error',
-        code: 'UU001',
-      });
+      throw this.mapPrismaError(error, 'UU001');
     }
   }
 
@@ -132,11 +137,7 @@ export class UserRepository extends BaseRepository {
         data: userData,
       });
     } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException({
-        message: 'Ocurrio un error',
-        code: 'CU001',
-      });
+      throw this.mapPrismaError(error, 'CU001');
     }
   }
 
@@ -149,11 +150,48 @@ export class UserRepository extends BaseRepository {
         data: sessionData,
       });
     } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException({
-        message: 'Ocurrio un error',
-        code: 'CS001',
-      });
+      throw this.mapPrismaError(error, 'CS001');
     }
+  }
+
+  /**
+   * Translate a persistence-layer failure into a meaningful HTTP exception.
+   *
+   * Known Prisma error codes are mapped to specific responses so that
+   * client-caused failures (duplicate email, missing record) are not
+   * masked as generic 500s. Any other error is logged with its original
+   * context and rethrown as a 500 without leaking internals to the client.
+   */
+  private mapPrismaError(error: unknown, code: string): HttpException {
+    if (error instanceof HttpException) {
+      return error;
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      switch (error.code) {
+        case 'P2002': {
+          const target = (error.meta?.target as string[] | undefined)?.join(
+            ', ',
+          );
+          return new ConflictException({
+            message: target
+              ? `A record with this ${target} already exists`
+              : 'A record with these unique values already exists',
+            code,
+          });
+        }
+        case 'P2025':
+          return new NotFoundException({
+            message: 'The requested record does not exist',
+            code,
+          });
+      }
+    }
+
+    this.logger.error(`Unexpected persistence error (${code})`, error as Error);
+    return new InternalServerErrorException({
+      message: 'Ocurrio un error',
+      code,
+    });
   }
 }

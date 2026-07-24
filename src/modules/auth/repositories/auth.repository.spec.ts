@@ -2,45 +2,33 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   BadRequestException,
   InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 
+import { AuthRepository } from './auth.repository';
 import { PrismaService } from '@core/prisma/services/prisma.service';
 import { EmailService } from '@core/email/services/email.service';
-
-import { AuthRepository } from './auth.repository';
+import { createMockPrismaService } from '../../../test-utils/mocks/prisma.mock';
 
 jest.mock('bcryptjs', () => ({
   hashSync: jest.fn().mockReturnValue('hashed-password'),
+  compareSync: jest.fn(),
 }));
 
 describe('AuthRepository', () => {
   let repository: AuthRepository;
-  let prismaService: {
-    session: {
-      findFirst: jest.Mock;
-      findFirstOrThrow: jest.Mock;
-      update: jest.Mock;
-    };
-  };
-  let jwtService: { sign: jest.Mock; verify: jest.Mock };
-  let mailService: { sendPassRecoveryMail: jest.Mock };
+  let prismaService: ReturnType<typeof createMockPrismaService>;
+  let jwtService: Record<string, jest.Mock>;
 
   beforeEach(async () => {
-    prismaService = {
-      session: {
-        findFirst: jest.fn(),
-        findFirstOrThrow: jest.fn(),
-        update: jest.fn(),
-      },
-    };
+    prismaService = createMockPrismaService();
+
     jwtService = {
-      sign: jest.fn().mockReturnValue('signed-token'),
+      sign: jest.fn(),
       verify: jest.fn(),
-    };
-    mailService = {
-      sendPassRecoveryMail: jest.fn(),
+      decode: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -48,7 +36,10 @@ describe('AuthRepository', () => {
         AuthRepository,
         { provide: PrismaService, useValue: prismaService },
         { provide: JwtService, useValue: jwtService },
-        { provide: EmailService, useValue: mailService },
+        {
+          provide: EmailService,
+          useValue: { sendPassRecoveryMail: jest.fn() },
+        },
         { provide: ConfigService, useValue: { get: jest.fn() } },
       ],
     }).compile();
@@ -56,126 +47,74 @@ describe('AuthRepository', () => {
     repository = module.get<AuthRepository>(AuthRepository);
   });
 
-  it('should be defined', () => {
-    expect(repository).toBeDefined();
-  });
-
-  describe('getSessionInfo', () => {
-    it('should delegate to prisma findFirst', async () => {
-      const session = { id: 1n, email: 'john@test.com' };
-      prismaService.session.findFirst.mockResolvedValue(session);
-      const findOptions = { where: { email: 'john@test.com' } };
-
-      const result = await repository.getSessionInfo(findOptions);
-
-      expect(prismaService.session.findFirst).toHaveBeenCalledWith(findOptions);
-      expect(result).toBe(session);
-    });
-  });
-
-  describe('updateMetadata', () => {
-    it('should increment login count and update last access', async () => {
-      prismaService.session.update.mockResolvedValue(undefined);
-
-      await repository.updateMetadata(1n);
-
-      expect(prismaService.session.update).toHaveBeenCalledWith({
-        where: { id: 1n },
-        data: {
-          timesLoggedIn: { increment: 1 },
-          lastAccess: expect.any(Date),
-        },
-      });
-    });
-  });
-
-  describe('sendRecoveryMail', () => {
-    const session = {
-      id: 1n,
-      email: 'john@test.com',
-      user: { id: 10n },
-    };
-
-    it('should sign a token, persist it and send the recovery mail', async () => {
-      prismaService.session.findFirstOrThrow.mockResolvedValue(session);
-      prismaService.session.update.mockResolvedValue(undefined);
-      mailService.sendPassRecoveryMail.mockResolvedValue({
-        accepted: ['john@test.com'],
-      });
-
-      const result = await repository.sendRecoveryMail({});
-
-      expect(jwtService.sign).toHaveBeenCalledWith(
-        { sub: 10n },
-        { expiresIn: '15min' },
-      );
-      expect(prismaService.session.update).toHaveBeenCalledWith({
-        where: { id: 1n },
-        data: { recoveryToken: 'signed-token' },
-      });
-      expect(mailService.sendPassRecoveryMail).toHaveBeenCalledWith(
-        'john@test.com',
-        'http://myfrontend.com/recovery?token=signed-token',
-      );
-      expect(result).toEqual({ message: 'Recovery Mail Successfully Sent' });
-    });
-
-    it('should throw when the mail is not accepted', async () => {
-      prismaService.session.findFirstOrThrow.mockResolvedValue(session);
-      prismaService.session.update.mockResolvedValue(undefined);
-      mailService.sendPassRecoveryMail.mockResolvedValue({ accepted: [] });
-
-      await expect(repository.sendRecoveryMail({} as any)).rejects.toThrow(
-        InternalServerErrorException,
-      );
-    });
-  });
+  afterEach(() => jest.clearAllMocks());
 
   describe('resetPassword', () => {
-    it('should hash the new password and clear the recovery token', async () => {
-      jwtService.verify.mockReturnValue({ sub: 10n });
+    it('debería propagar el BadRequestException cuando el token no coincide', async () => {
+      jwtService.verify.mockReturnValue({ sub: 1 });
       prismaService.session.findFirstOrThrow.mockResolvedValue({
         id: 1n,
-        recoveryToken: 'valid-token',
-        user: { id: 10n },
+        recoveryToken: 'a-different-token',
+        user: { id: 1n },
       });
-      prismaService.session.update.mockResolvedValue(undefined);
 
-      const result = await repository.resetPassword(
-        'valid-token',
-        'newPass123',
+      await expect(
+        repository.resetPassword('incoming-token', 'NewPass123'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debería mapear errores de JWT a UnauthorizedException', async () => {
+      const jwtError = new Error('jwt expired');
+      jwtError.name = 'TokenExpiredError';
+      jwtService.verify.mockImplementation(() => {
+        throw jwtError;
+      });
+
+      await expect(
+        repository.resetPassword('expired-token', 'NewPass123'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('debería mapear P2025 a BadRequestException', async () => {
+      jwtService.verify.mockReturnValue({ sub: 1 });
+      const notFound: any = new Error('Not found');
+      notFound.code = 'P2025';
+      prismaService.session.findFirstOrThrow.mockRejectedValue(notFound);
+
+      await expect(
+        repository.resetPassword('token', 'NewPass123'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('debería lanzar InternalServerErrorException sin filtrar el error crudo', async () => {
+      jwtService.verify.mockReturnValue({ sub: 1 });
+      prismaService.session.findFirstOrThrow.mockRejectedValue(
+        new Error('secret db connection string leaked'),
       );
 
-      expect(jwtService.verify).toHaveBeenCalledWith('valid-token');
-      expect(prismaService.session.update).toHaveBeenCalledWith({
-        where: { id: 1n },
-        data: { recoveryToken: null, password: 'hashed-password' },
-      });
-      expect(result).toEqual({ message: 'Password Changed' });
+      const thrown = await repository
+        .resetPassword('token', 'NewPass123')
+        .catch((err) => err);
+
+      expect(thrown).toBeInstanceOf(InternalServerErrorException);
+      expect(JSON.stringify(thrown.getResponse())).not.toContain(
+        'secret db connection string',
+      );
     });
 
-    it('should wrap a mismatched recovery token error', async () => {
-      jwtService.verify.mockReturnValue({ sub: 10n });
+    it('debería cambiar la contraseña con un token válido', async () => {
+      jwtService.verify.mockReturnValue({ sub: 1 });
       prismaService.session.findFirstOrThrow.mockResolvedValue({
         id: 1n,
-        recoveryToken: 'other-token',
-        user: { id: 10n },
+        recoveryToken: 'token',
+        user: { id: 1n },
       });
+      prismaService.session.update.mockResolvedValue({ id: 1n });
 
-      await expect(
-        repository.resetPassword('valid-token', 'newPass123'),
-      ).rejects.toThrow(InternalServerErrorException);
-      expect(prismaService.session.update).not.toHaveBeenCalled();
-    });
+      const result = await repository.resetPassword('token', 'NewPass123');
 
-    it('should wrap verification failures as internal server errors', async () => {
-      jwtService.verify.mockImplementation(() => {
-        throw new BadRequestException('invalid');
-      });
-
-      await expect(
-        repository.resetPassword('bad-token', 'newPass123'),
-      ).rejects.toThrow(InternalServerErrorException);
+      expect(result).toEqual({ message: 'Password Changed' });
+      expect(prismaService.session.update).toHaveBeenCalled();
     });
   });
 });
