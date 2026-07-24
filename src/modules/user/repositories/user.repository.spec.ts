@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { UserRepository } from './user.repository';
 import { PrismaService } from '@core/prisma/services/prisma.service';
 import { PaginationService } from '@core/pagination/services/pagination.service';
@@ -95,6 +97,37 @@ describe('UserRepository', () => {
       expect(mockTransactionClient.user.create).toHaveBeenCalled();
       expect(result).toHaveProperty('url', 'http://localhost:3000/users/1');
     });
+
+    it('should map a unique-constraint violation (P2002) to ConflictException', async () => {
+      const createOptions = {
+        body: {
+          email: 'dupe@test.com',
+          password: 'pass',
+          name: 'Test',
+          lastName: 'User',
+          rolId: 1,
+        },
+        newResourceUrl: true,
+      };
+
+      const p2002 = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        { code: 'P2002', clientVersion: '6.0.0', meta: { target: ['email'] } },
+      );
+
+      const mockTransactionClient = {
+        session: { create: jest.fn().mockRejectedValue(p2002) },
+        user: { create: jest.fn() },
+      };
+
+      prismaService.$transaction.mockImplementation(async (callback) => {
+        return callback(mockTransactionClient as any);
+      });
+
+      await expect(repository.createUser(createOptions as any)).rejects.toThrow(
+        ConflictException,
+      );
+    });
   });
 
   describe('updateUser', () => {
@@ -118,6 +151,31 @@ describe('UserRepository', () => {
       expect(prismaService.$transaction).toHaveBeenCalled();
       expect(mockTransactionClient.user.update).toHaveBeenCalled();
       expect(result).toHaveProperty('url', 'http://localhost:3000/users/1');
+    });
+
+    it('should map a missing-record error (P2025) to NotFoundException', async () => {
+      const updateOptions = {
+        id: 999,
+        body: { name: 'Updated' },
+        resourceUrl: true,
+      };
+
+      const p2025 = new Prisma.PrismaClientKnownRequestError(
+        'Record to update not found',
+        { code: 'P2025', clientVersion: '6.0.0' },
+      );
+
+      const mockTransactionClient = {
+        user: { update: jest.fn().mockRejectedValue(p2025) },
+      };
+
+      prismaService.$transaction.mockImplementation(async (callback) => {
+        return callback(mockTransactionClient as any);
+      });
+
+      await expect(repository.updateUser(updateOptions)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

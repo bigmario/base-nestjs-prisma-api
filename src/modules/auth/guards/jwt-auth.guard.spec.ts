@@ -55,7 +55,6 @@ describe('JwtAuthGuard', () => {
   // The guard uses context.getArgs()[0].headers.authorization
   const createMockContext = (
     headers: Record<string, string> = {},
-    isPublic = false,
   ): ExecutionContext => {
     const request = { headers };
     return {
@@ -94,6 +93,22 @@ describe('JwtAuthGuard', () => {
 
     await expect(guard.canActivate(context)).rejects.toThrow(
       UnauthorizedException,
+    );
+  });
+
+  it('no debería lanzar 500 cuando el token es malformado (decode retorna null)', async () => {
+    reflector.getAllAndOverride.mockReturnValue(false);
+    authService.jwtService.decode.mockReturnValue(null);
+    const context = createMockContext({
+      authorization: 'Bearer not-a-jwt',
+    });
+
+    const result = await guard.canActivate(context);
+
+    expect(result).toBe(true);
+    expect(cacheManager.get).not.toHaveBeenCalled();
+    expect(AuthGuard('jwt').prototype.canActivate).toHaveBeenCalledWith(
+      context,
     );
   });
 
