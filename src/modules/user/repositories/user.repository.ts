@@ -1,10 +1,11 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { hashSync } from 'bcryptjs';
 
 import { PrismaService } from '@core/prisma/services/prisma.service';
 import { PaginationService } from '@core/pagination/services/pagination.service';
 import { RedisCacheService } from '@core/cache/redis-cache.service';
+import { runPrismaWrite } from '@core/prisma/utils/prisma-error.util';
 
 import { CreateUserDto } from '@user/dtos/create-user.dto';
 import { BaseCreateBodyDto } from '@core/dtos/base-create-body.dto';
@@ -40,10 +41,13 @@ export class UserRepository extends BaseRepository {
           },
         };
 
-        const updatedUser: any = await this.updateUserTransaction(
-          updateOptions.id,
-          userData,
-          prismaTransactionClient,
+        const updatedUser: any = await runPrismaWrite(
+          () =>
+            prismaTransactionClient.user.update({
+              where: { id: updateOptions.id },
+              data: userData,
+            }),
+          'UU001',
         );
 
         if (updateOptions.resourceUrl) {
@@ -71,9 +75,9 @@ export class UserRepository extends BaseRepository {
           statusId: 1,
         };
 
-        const newSession = await this.createSession(
-          sessionData,
-          prismaTransactionClient,
+        const newSession = await runPrismaWrite(
+          () => prismaTransactionClient.session.create({ data: sessionData }),
+          'CS001',
         );
 
         const userData: Prisma.userCreateArgs['data'] = {
@@ -85,9 +89,9 @@ export class UserRepository extends BaseRepository {
           session: { connect: { id: newSession.id } },
         };
 
-        const newUser: any = await this.createUserTransaction(
-          userData,
-          prismaTransactionClient,
+        const newUser: any = await runPrismaWrite(
+          () => prismaTransactionClient.user.create({ data: userData }),
+          'CU001',
         );
 
         if (createOptions.newResourceUrl) {
@@ -102,58 +106,5 @@ export class UserRepository extends BaseRepository {
         return newUser;
       },
     );
-  }
-
-  private async updateUserTransaction(
-    id: number,
-    userData: Prisma.userUpdateArgs['data'],
-    prismaTransactionClient: Prisma.TransactionClient,
-  ) {
-    try {
-      return await prismaTransactionClient.user.update({
-        where: { id },
-        data: userData,
-      });
-    } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException({
-        message: 'Ocurrio un error',
-        code: 'UU001',
-      });
-    }
-  }
-
-  private async createUserTransaction(
-    userData: Prisma.userCreateArgs['data'],
-    prismaTransactionClient: Prisma.TransactionClient,
-  ) {
-    try {
-      return await prismaTransactionClient.user.create({
-        data: userData,
-      });
-    } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException({
-        message: 'Ocurrio un error',
-        code: 'CU001',
-      });
-    }
-  }
-
-  private async createSession(
-    sessionData: Prisma.sessionCreateArgs['data'],
-    prismaTransactionClient: Prisma.TransactionClient,
-  ) {
-    try {
-      return await prismaTransactionClient.session.create({
-        data: sessionData,
-      });
-    } catch (error) {
-      console.log(error);
-      throw new InternalServerErrorException({
-        message: 'Ocurrio un error',
-        code: 'CS001',
-      });
-    }
   }
 }

@@ -1,9 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { JwtService } from '@nestjs/jwt';
@@ -14,6 +9,14 @@ import { IRequest } from '@auth/interfaces/express';
 import { AuthRepository } from '@auth/repositories/auth.repository';
 import { Prisma } from '@prisma/client';
 import { RecoveryDto, ResetPassDto } from '@auth/dto/recovery.dto';
+import {
+  SESSION_PROFILE_SELECT,
+  mapSessionToProfile,
+} from '@auth/utils/session.utils';
+import {
+  isNotFoundError,
+  throwUnexpectedError,
+} from '@core/prisma/utils/prisma-error.util';
 
 @Injectable()
 export class AuthService {
@@ -53,22 +56,7 @@ export class AuthService {
   public async login(sessionInfo: IRequest['user']): Promise<any> {
     const findOptions: Prisma.sessionFindFirstArgs = {
       where: { user: { id: sessionInfo.id } },
-      select: {
-        id: true,
-        email: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            lastName: true,
-            imgUrl: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-        type: { select: { id: true, name: true } },
-        rol: { select: { id: true, name: true } },
-      },
+      select: SESSION_PROFILE_SELECT,
     };
     const fullSessionInfo: any =
       await this.authRepo.getSessionInfo(findOptions);
@@ -77,10 +65,7 @@ export class AuthService {
       access_token: this.jwtService.sign(sessionInfo, {
         jwtid: await nanoid(),
       }),
-      ...fullSessionInfo.user,
-      email: fullSessionInfo.email,
-      type: fullSessionInfo.type.name,
-      rol: fullSessionInfo.rol.name,
+      ...mapSessionToProfile(fullSessionInfo),
     };
   }
 
@@ -100,33 +85,13 @@ export class AuthService {
   public async getMyInfo(sessionInfo: IRequest['user']) {
     const findOptions: Prisma.sessionFindFirstArgs = {
       where: { user: { id: sessionInfo.id } },
-      select: {
-        id: true,
-        email: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            lastName: true,
-            imgUrl: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-        type: { select: { id: true, name: true } },
-        rol: { select: { id: true, name: true } },
-      },
+      select: SESSION_PROFILE_SELECT,
     };
 
     const fullSessionInfo: any =
       await this.authRepo.getSessionInfo(findOptions);
 
-    return {
-      ...fullSessionInfo.user,
-      email: fullSessionInfo.email,
-      type: fullSessionInfo.type.name,
-      rol: fullSessionInfo.rol.name,
-    };
+    return mapSessionToProfile(fullSessionInfo);
   }
 
   public async sendRecoveryMail(recoveryDto: RecoveryDto) {
@@ -143,16 +108,12 @@ export class AuthService {
       const mail = await this.authRepo.sendRecoveryMail(findOptions);
       return mail;
     } catch (error) {
-      switch (error.name) {
-        case 'NotFoundError':
-          throw new NotFoundException(
-            `No existe el usuario con el email ${recoveryDto.email}`,
-          );
-
-        default:
-          console.log(error);
-          throw new InternalServerErrorException(`Ocurrio un error inesperado`);
+      if (isNotFoundError(error)) {
+        throw new NotFoundException(
+          `No existe el usuario con el email ${recoveryDto.email}`,
+        );
       }
+      throwUnexpectedError(error);
     }
   }
 
