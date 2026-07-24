@@ -1,7 +1,10 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
+  Logger,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { hashSync } from 'bcryptjs';
 import { PrismaService } from '@core/prisma/services/prisma.service';
@@ -12,6 +15,8 @@ import { EmailService } from '@core/email/services/email.service';
 
 @Injectable()
 export class AuthRepository {
+  private readonly logger = new Logger(AuthRepository.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     public readonly jwtService: JwtService,
@@ -63,10 +68,9 @@ export class AuthRepository {
     };
   }
 
-  public async resetPassword(token, newPassword) {
+  public async resetPassword(token: string, newPassword: string) {
     try {
       const payload = this.jwtService.verify(token);
-      // payload.sub
 
       const session = await this.prismaService.session.findFirstOrThrow({
         where: {
@@ -80,7 +84,7 @@ export class AuthRepository {
       });
 
       if (session.recoveryToken !== token) {
-        throw new BadRequestException('Unauthorized');
+        throw new UnauthorizedException('Invalid recovery token');
       }
       const hash = hashSync(newPassword, 10);
       await this.prismaService.session.update({
@@ -94,7 +98,18 @@ export class AuthRepository {
       });
       return { message: 'Password Changed' };
     } catch (error) {
-      throw new InternalServerErrorException(`Error ${error}`);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      if (
+        error?.name === 'JsonWebTokenError' ||
+        error?.name === 'TokenExpiredError' ||
+        error?.name === 'NotFoundError'
+      ) {
+        throw new BadRequestException('Invalid or expired recovery token');
+      }
+      this.logger.error('Unexpected error while resetting password', error);
+      throw new InternalServerErrorException('An unexpected error occurred');
     }
   }
 }

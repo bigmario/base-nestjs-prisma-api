@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
@@ -38,6 +39,8 @@ const CACHE_USER_ITEM_TTL = 600_000; // 10 minutes
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   private userSelect: Prisma.userSelect = {
     id: true,
     name: true,
@@ -219,7 +222,7 @@ export class UserService {
           throw new BadRequestException(`No existe el usuario con el id ${id}`);
 
         default:
-          console.log(error);
+          this.logger.error('Unexpected error while fetching user', error);
           throw new InternalServerErrorException(`Ocurrio un error inesperado`);
       }
     }
@@ -269,7 +272,7 @@ export class UserService {
           throw new BadRequestException(`No existe el usuario con el id ${id}`);
 
         default:
-          console.log(error);
+          this.logger.error('Unexpected error while deleting user', error);
           throw new InternalServerErrorException({
             message: 'Ocurrio un error desconocido al borrar al usuario',
           });

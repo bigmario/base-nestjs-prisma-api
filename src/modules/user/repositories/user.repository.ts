@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { hashSync } from 'bcryptjs';
 
@@ -15,6 +19,8 @@ import { UpdateUserDto } from '@user/dtos/update-user.dto';
 
 @Injectable()
 export class UserRepository extends BaseRepository {
+  private readonly logger = new Logger(UserRepository.name);
+
   constructor(
     public readonly prismaService: PrismaService,
     paginationService: PaginationService,
@@ -115,7 +121,7 @@ export class UserRepository extends BaseRepository {
         data: userData,
       });
     } catch (error) {
-      console.log(error);
+      this.logger.error('Error while updating user', error);
       throw new InternalServerErrorException({
         message: 'Ocurrio un error',
         code: 'UU001',
@@ -132,7 +138,7 @@ export class UserRepository extends BaseRepository {
         data: userData,
       });
     } catch (error) {
-      console.log(error);
+      this.logger.error('Error while creating user', error);
       throw new InternalServerErrorException({
         message: 'Ocurrio un error',
         code: 'CU001',
@@ -149,7 +155,7 @@ export class UserRepository extends BaseRepository {
         data: sessionData,
       });
     } catch (error) {
-      console.log(error);
+      this.logger.error('Error while creating session', error);
       throw new InternalServerErrorException({
         message: 'Ocurrio un error',
         code: 'CS001',

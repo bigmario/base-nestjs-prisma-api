@@ -2,6 +2,7 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -17,6 +18,8 @@ import { RecoveryDto, ResetPassDto } from '@auth/dto/recovery.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly authRepo: AuthRepository,
     public readonly jwtService: JwtService,
@@ -150,7 +153,10 @@ export class AuthService {
           );
 
         default:
-          console.log(error);
+          this.logger.error(
+            'Unexpected error while sending recovery mail',
+            error,
+          );
           throw new InternalServerErrorException(`Ocurrio un error inesperado`);
       }
     }

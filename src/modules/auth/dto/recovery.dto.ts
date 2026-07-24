@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsEmail } from 'class-validator';
+import { IsString, IsNotEmpty, IsEmail, MinLength } from 'class-validator';
 
 export class RecoveryDto {
   @IsString()
@@ -14,5 +14,6 @@ export class ResetPassDto {
 
   @IsString()
   @IsNotEmpty()
+  @MinLength(8)
   readonly newPassword: string;
 }

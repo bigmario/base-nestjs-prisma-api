@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsNumber, IsEmail } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsEmail,
+  MinLength,
+} from 'class-validator';
 
 export enum IdentityPrefix {
   J = 'J',
@@ -19,6 +25,7 @@ export class CreateUserDto {
   email: string;
 
   @IsString()
+  @MinLength(8)
   password: string;
 
   @IsString()
