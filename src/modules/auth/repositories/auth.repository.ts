@@ -1,7 +1,10 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
+  Logger,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { hashSync } from 'bcryptjs';
 import { PrismaService } from '@core/prisma/services/prisma.service';
@@ -12,6 +15,8 @@ import { EmailService } from '@core/email/services/email.service';
 
 @Injectable()
 export class AuthRepository {
+  private readonly logger = new Logger(AuthRepository.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     public readonly jwtService: JwtService,
@@ -94,7 +99,29 @@ export class AuthRepository {
       });
       return { message: 'Password Changed' };
     } catch (error) {
-      throw new InternalServerErrorException(`Error ${error}`);
+      // Preserve intentional domain errors (e.g. invalid recovery token).
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      // Invalid/expired JWT recovery tokens are client errors, not 500s.
+      if (
+        error?.name === 'TokenExpiredError' ||
+        error?.name === 'JsonWebTokenError' ||
+        error?.name === 'NotBeforeError'
+      ) {
+        throw new UnauthorizedException('Invalid or expired recovery token');
+      }
+
+      // Recovery session no longer exists.
+      if (error?.code === 'P2025' || error?.name === 'NotFoundError') {
+        throw new BadRequestException('Invalid recovery token');
+      }
+
+      this.logger.error('Unexpected error while resetting password', error);
+      throw new InternalServerErrorException(
+        'An unexpected error occurred while resetting the password',
+      );
     }
   }
 }

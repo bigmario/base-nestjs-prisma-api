@@ -1,7 +1,9 @@
 import {
+  HttpException,
   Inject,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -17,6 +19,8 @@ import { RecoveryDto, ResetPassDto } from '@auth/dto/recovery.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly authRepo: AuthRepository,
     public readonly jwtService: JwtService,
@@ -143,16 +147,21 @@ export class AuthService {
       const mail = await this.authRepo.sendRecoveryMail(findOptions);
       return mail;
     } catch (error) {
-      switch (error.name) {
-        case 'NotFoundError':
-          throw new NotFoundException(
-            `No existe el usuario con el email ${recoveryDto.email}`,
-          );
-
-        default:
-          console.log(error);
-          throw new InternalServerErrorException(`Ocurrio un error inesperado`);
+      // Preserve intentional HTTP errors raised downstream
+      // (e.g. "Recovery Mail Not Sent").
+      if (error instanceof HttpException) {
+        throw error;
       }
+
+      // Prisma `findFirstOrThrow` raises P2025 when the session is missing.
+      if (error?.code === 'P2025' || error?.name === 'NotFoundError') {
+        throw new NotFoundException(
+          `No existe el usuario con el email ${recoveryDto.email}`,
+        );
+      }
+
+      this.logger.error('Unexpected error while sending recovery mail', error);
+      throw new InternalServerErrorException('Ocurrio un error inesperado');
     }
   }
 

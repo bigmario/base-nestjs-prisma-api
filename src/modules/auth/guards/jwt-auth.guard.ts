@@ -78,8 +78,13 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
   private async tokenInBlacklist(access_token: string): Promise<boolean> {
     const decodeToken: any = this.authService.jwtService.decode(access_token);
-    const jti = decodeToken.jti;
 
-    return (await this.cacheManager.get(jti)) || false;
+    // A malformed token cannot be decoded; treat it as not blacklisted and
+    // let the underlying passport strategy reject it as unauthorized.
+    if (!decodeToken?.jti) {
+      return false;
+    }
+
+    return (await this.cacheManager.get(decodeToken.jti)) || false;
   }
 }

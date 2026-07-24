@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
@@ -51,6 +53,8 @@ export class UserService {
     imgUrl: true,
     session: true,
   };
+
+  private readonly logger = new Logger(UserService.name);
 
   constructor(private readonly userRepository: UserRepository) {}
 
@@ -214,14 +218,14 @@ export class UserService {
       };
       return response;
     } catch (error) {
-      switch (error.code) {
-        case 'P2025':
-          throw new BadRequestException(`No existe el usuario con el id ${id}`);
-
-        default:
-          console.log(error);
-          throw new InternalServerErrorException(`Ocurrio un error inesperado`);
+      if (error instanceof HttpException) {
+        throw error;
       }
+      if (error?.code === 'P2025' || error?.name === 'NotFoundError') {
+        throw new BadRequestException(`No existe el usuario con el id ${id}`);
+      }
+      this.logger.error(`Unexpected error fetching user ${id}`, error);
+      throw new InternalServerErrorException('Ocurrio un error inesperado');
     }
   }
 
@@ -264,16 +268,16 @@ export class UserService {
 
       return { message: 'Usuario eliminado con éxito' };
     } catch (error) {
-      switch (error.code) {
-        case 'P2025':
-          throw new BadRequestException(`No existe el usuario con el id ${id}`);
-
-        default:
-          console.log(error);
-          throw new InternalServerErrorException({
-            message: 'Ocurrio un error desconocido al borrar al usuario',
-          });
+      if (error instanceof HttpException) {
+        throw error;
       }
+      if (error?.code === 'P2025' || error?.name === 'NotFoundError') {
+        throw new BadRequestException(`No existe el usuario con el id ${id}`);
+      }
+      this.logger.error(`Unexpected error deleting user ${id}`, error);
+      throw new InternalServerErrorException({
+        message: 'Ocurrio un error desconocido al borrar al usuario',
+      });
     }
   }
 }
